@@ -1,0 +1,24 @@
+{
+  "current_version": "refund-cases-v2",
+  "active_file": "cases.json",
+  "versions": [
+    {
+      "version": "refund-cases-v1",
+      "file": "datasets/refund-cases-v1.json",
+      "sha256": "adce2670d9ae86e6c171bede19bcb1f534ad00408b132b3084e65bee3ca83bc2",
+      "case_count": 20,
+      "description": "Original recorded 20-case baseline; preserves the ambiguous eligibility request in case 16."
+    },
+    {
+      "version": "refund-cases-v2",
+      "file": "datasets/refund-cases-v2.json",
+      "sha256": "283f3e58caecb58f6da74eebe3f20685960a4df79e0f3f33d3e6c3b114483b6c",
+      "case_count": 20,
+      "parent": "refund-cases-v1",
+      "changed_cases": [
+        "refund-16"
+      ],
+      "description": "Case 16 explicitly requests cancellation and a refund if unshipped. All other inputs and expectations are unchanged."
+    }
+  ]
+}
