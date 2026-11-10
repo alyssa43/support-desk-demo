@@ -1,7 +1,69 @@
 # Kitaru refund demo
 
-Goal: understand the evaluation workflow by measuring a baseline, investigating
-an observed failure, and testing one prompt change against the same cases.
+A small support-desk agent, built on the OpenAI Agents SDK, that looks up
+orders and issues refunds against a fake shop. It is recorded and replayed
+with Kitaru to walk through one evaluation loop end to end: measure a
+baseline, investigate an observed failure, write an evaluator, test one change
+at a time against the same cases, and compare the results.
+
+`DEMO_SCRIPT.md` is the presenter script. The rest of this file is the
+evidence behind it.
+
+## Quick start
+
+Requires Python 3.12 and [Poetry](https://python-poetry.org/). Poetry creates
+the virtualenv in-project at `.venv/`.
+
+```sh
+poetry install
+```
+
+```sh
+cp .env.example .env
+```
+
+The offline checks under [Local checks](#local-checks) run as soon as the
+install finishes: they make no model calls, do not read `.env`, and do not
+contact a Kitaru server. `OPENAI_API_KEY` in `.env` is needed only to record.
+
+To record or replay sessions you also need a Kitaru server (`.venv/bin/kitaru
+login`), an agent registered with the replay entrypoint, and its IDs in `.env`:
+
+```sh
+.venv/bin/kitaru agent register support-desk --command ".venv/bin/python -m support_desk.main task" --working-dir "$PWD"
+```
+
+Put the returned agent ID and version ID into `.env`, then record each case
+once (paid model calls; session IDs are written under the git-ignored
+`sessions/` folder):
+
+```sh
+.venv/bin/python -m support_desk.main record refund
+```
+
+`python -m support_desk.kitaru_args` prints the JSON arguments for the
+evaluator answer key, prompt overrides, and replay tool policy so nothing is
+hand-typed.
+
+## Repository layout
+
+| Path | What it is |
+| --- | --- |
+| `support_desk/` | The agent: fake shop data, two tools, prompt loading, and the record/replay entrypoint |
+| `prompts/refund_v*.md` | Each tested system prompt. V5 changed only the model, so there is no v5 file |
+| `cases.json`, `datasets/` | The 20 curated cases and their versioned snapshots |
+| `evals.py` | The `action_correct` evaluator that is uploaded to Kitaru |
+| `tests/` | Offline checks for the cases, the evaluator, and model-visible inputs |
+| `scripts/` | Maintainer scripts for the AWS-hosted Kitaru server (see the last section) |
+| `DEMO_SCRIPT.md` | Presenter script for the 10 to 12 minute walkthrough |
+
+### About `sessions/`
+
+The results below cite `sessions/...` evidence directories: per-case payloads,
+comparison tables, and cost arithmetic. That folder is git-ignored and exists
+only on the maintainer's machine. The summary tables in this README and the
+named Kitaru experiments are the shareable record; ask the maintainer if you
+need the raw evidence.
 
 ## Policy and scoring
 
@@ -275,3 +337,83 @@ load `.env`, record sessions, or write to a Kitaru server. They verify evaluator
 behavior; they are not baseline agent results.
 The CLI check verifies loading and the callable signature only; it does not
 invoke the evaluator against sessions.
+
+
+## Experiment loops (November 10, 2026)
+
+Two iteration loops were run on the new Kitaru server against the 20-session
+cohort `support-desk-v1-baseline@1`, both driven by Claude Code skills that
+live outside this repo (`experiment-loop` and `kitaru-loop` under
+`~/.claude/skills`).
+
+- **Two-greens loop.** Iteration 1 replayed the recorded configuration unchanged
+  and scored 19/20 (case 10 red). Iteration 2 changed one thing, the prompt in
+  `prompts/refund_iter2.md`, which makes the day-30 boundary explicitly
+  inclusive, and scored 20/20 twice. Experiments
+  `support-desk-demo-iteration-1` and `-2`.
+- **pass^k loop.** Configured by `kitaru-loop.json`: 5 trials per round, k=3,
+  allow one miss per case, cohort mean pass^3 ≥ 0.9, no regression against
+  round 0, confirmation on 5 fresh trials. Round 0 audited the unchanged agent:
+  case 10 flaky (1/5), all other cases 5/5. Round 1 used
+  `prompts/refund_round1.md` (same idea, written from the round-0 failure),
+  passed 5/5 on every case, and confirmed with one miss on case 10 (4/5).
+  Case 10 went 1/5 to 9/10 overall; the explicit sentence reduced the
+  misreading on gpt-4o-mini but did not eliminate it. Experiments
+  `day-30-refunds-round-0` and `-1`.
+
+Both loops kept the registered agent version fixed and recorded each change as
+an experiment override. Per-run evidence is under the git-ignored `sessions/`.
+
+
+## AWS-hosted Kitaru (maintainer only)
+
+On November 2, 2026 the demo was also connected to a self-hosted Kitaru
+deployment in AWS `us-east-1`, reached through an SSM tunnel managed from a
+separate `saisei` repository. That connection is machine-specific. It needs
+the tunnel, a git-ignored `.env.saisei` holding the server URL, API key and
+registered agent IDs, and a replay executable registered with the maintainer's
+local paths. Teammates do not need any of this for the local checks or the
+demo script. Provider credentials still come from `.env`.
+
+`scripts/saisei.py` loads `.env`, then `.env.saisei` on top, and runs either
+the Kitaru CLI or a Python script against that server:
+
+```sh
+.venv/bin/python scripts/saisei.py kitaru status
+```
+
+```sh
+# Records four new sessions, using paid model calls:
+.venv/bin/python scripts/saisei.py python scripts/aws_smoke.py
+```
+
+```sh
+# Separate terminal for replay and evaluation; Ctrl-C requests a drain:
+.venv/bin/python scripts/saisei.py kitaru worker start --concurrency 10 \
+  --claim agent=01a19e32-6da9-7fe1-b410-9a736338233d --claim evaluator
+```
+
+With the tunnel open, the server UI is at http://localhost:8000 under the
+`support-desk-demo` project. The bootstrap login comes from the `saisei`
+repository's `credentials` command.
+
+The first AWS smoke test recorded original cases 01, 04, 10 and 11 with
+`refund_v1` and `gpt-4o-mini`. The existing action evaluator scored **3/4**:
+case 10 incorrectly declined the eligible damaged item at exactly day 30.
+All four recordings and evaluation tasks completed successfully. An unchanged
+replay of case 01 completed and passed using baseline lookup history and a
+static refund confirmation. An initial replay attempt failed adapter preflight
+because its default policy was unsupported; that evidence is preserved.
+This verifies integration, not agent reliability or response quality.
+
+A subsequent acceptance drill the same day verified full snapshot
+shutdown/restore, a passing post-restore replay with a fresh worker cache,
+automatic EC2 reboot recovery, and managed RDS password rotation. Session
+payloads, scores, the original API key, a four-member infrastructure-test
+cohort and a non-sensitive encrypted test secret all matched after each
+recovery step. No human review or agent-quality claim is implied. There are
+six completed AWS sessions. No historical sessions were migrated, and all
+refund tools use synthetic data; no real refunds occur.
+
+Evidence: `sessions/aws_smoke_20261102T213816Z_62d561/` (local only), plus the
+deployment and acceptance notes kept in the `saisei` repository.

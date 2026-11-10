@@ -1,0 +1,90 @@
+{
+  "kitaru": ".venv/bin/kitaru",
+  "criteria": {
+    "trials_per_round": 5,
+    "k": 3,
+    "screen_first": true,
+    "per_case_floor": "allow_one_miss",
+    "cohort_target_mean_pass_k": 0.9,
+    "no_regression": true,
+    "confirmation_round": true,
+    "max_rounds": 4,
+    "budget_usd": 1.0,
+    "plateau_patience": 2
+  },
+  "name": "Day-30 refunds",
+  "hypothesis": "Under refund_v1 the agent reads the 30-day damage window as exclusive and declines damaged items delivered exactly 30 days ago (cases 10 and 13). Making the boundary explicit should fix them without changing any other decision.",
+  "agent_version": "support-desk-demo@1",
+  "cohort_version_id": "01a1c71c-abff-7454-8f31-2808a19b9f10",
+  "allowed_changes": [
+    "system_prompt",
+    "model"
+  ],
+  "allowed_models": [
+    "gpt-4.1-mini",
+    "gpt-4.1",
+    "gpt-5-mini"
+  ],
+  "tool_policy": {
+    "default": {
+      "type": "passthrough"
+    },
+    "tools": {
+      "lookup_order": {
+        "type": "history",
+        "scope": "baseline",
+        "on_miss": "passthrough"
+      },
+      "issue_refund": {
+        "type": "static",
+        "cases": [
+          {
+            "match_mode": "exact",
+            "result": "Refund issued."
+          }
+        ],
+        "on_miss": "fail"
+      }
+    }
+  },
+  "evaluators": [
+    {
+      "ref": "support-desk-action-correct@1",
+      "kind": "binary",
+      "role": "gate",
+      "params": {
+        "expected": {
+          "refund-01": "issue_refund",
+          "refund-02": "issue_refund",
+          "refund-03": "issue_refund",
+          "refund-04": "none",
+          "refund-05": "none",
+          "refund-06": "none",
+          "refund-07": "none",
+          "refund-08": "none",
+          "refund-09": "issue_refund",
+          "refund-10": "issue_refund",
+          "refund-11": "none",
+          "refund-12": "none",
+          "refund-13": "issue_refund",
+          "refund-14": "none",
+          "refund-15": "issue_refund",
+          "refund-16": "issue_refund",
+          "refund-17": "none",
+          "refund-18": "none",
+          "refund-19": "none",
+          "refund-20": "none"
+        }
+      }
+    },
+    {
+      "source": "session.cost",
+      "kind": "metric",
+      "role": "report"
+    }
+  ],
+  "evidence_dir": "sessions/kitaru-loop",
+  "case_id_field": "case_id",
+  "prompt_dir": "prompts",
+  "experiment_prefix": "day-30-refunds"
+}

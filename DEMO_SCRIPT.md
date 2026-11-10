@@ -10,7 +10,7 @@
 - Open the `support-desk` agent, its original sessions, and `support-desk-v1-baseline-review` investigation.
 - Have `support-desk-v1-reproduction-20261028`, `support-desk-v2-day30-20261028`, and `support-desk-v6-predicate-20261028` ready under Experiments.
 - Open `support_desk/main.py`, `support_desk/specialists.py`, `evals.py`, and `prompts/refund_v6.md` in the editor.
-- Keep `sessions/iteration_summary_20261028/results.md` available for the complete version history.
+- Keep `sessions/iteration_summary_20261028/results.md` available for the complete version history. That folder is local to the maintainer's machine; the version table in section 7 repeats its summary.
 
 ## 1. Frame the customer problem
 
@@ -225,5 +225,6 @@ and the local Kitaru documentation checked while drafting:
 - `docs/book/guides/tool-policies.md`: tool sources and miss behavior; adapter-specific limits must be verified.
 - `docs/book/adapters/importer-backed.md`: imported-trace wrappers have a different interception/override boundary.
 
-Those documentation paths are relative to `/Users/alyssaeaster/kitaru`. They are
-presenter references, not claims that every framework supports the same features.
+Those documentation paths are relative to a local checkout of the Kitaru
+documentation repository. They are presenter references, not claims that every
+framework supports the same features.
